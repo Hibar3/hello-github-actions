@@ -4,3 +4,5 @@ chore: chore/*
 patch: patch/*
 work-in-progress: wip/*
 fixed-branch: fixed-branch-name
+
+### label-name : branch-name/*
