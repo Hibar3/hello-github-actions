@@ -1,3 +1,5 @@
+### this assigns a work-in-progress label when pull request updates/commits
+
 name: Assign work in progress label when pull request is updated
 on: [pull_request]
 jobs:
