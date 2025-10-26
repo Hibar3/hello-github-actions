@@ -1,29 +1,63 @@
+name: Auto Create Release (from Helm values)
+
 on:
   push:
-    # Sequence of patterns matched against refs/tags
-    tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+    branches:
+      - main
+    paths:
+      - 'helm-chart/values.yaml'   # trigger when Helm image tag changes
 
-name: Create Release
+permissions:
+  contents: write   # required for tagging & release creation
 
 jobs:
   build:
-    name: Create Release
+    name: Auto Tag & Create Release
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@master
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        uses: actions/checkout@v4
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          fetch-depth: 0  # fetch full history for tags
+
+      - name: Extract image tag from values.yaml
+        id: extract
+        run: |
+          TAG=$(grep '^[[:space:]]*tag:' helm-chart/values.yaml | awk '{print $2}' | tr -d '"')
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Detected image tag: $TAG"
+
+      - name: Check if tag already exists
+        id: check
+        run: |
+          TAG=${{ steps.extract.outputs.image_tag }}
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists. Skipping release."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Git tag
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          TAG=${{ steps.extract.outputs.image_tag }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.extract.outputs.image_tag }}
+          release_name: Release ${{ steps.extract.outputs.image_tag }}
           body: |
-            Changes in this Release
-            - First Change
-            - Second Change
+            🚀 **Helm Chart Release ${{ steps.extract.outputs.image_tag }}**
+            - Automatically generated from values.yaml image tag
           draft: false
           prerelease: false
