@@ -1,0 +1,15 @@
+### this assigns a work-in-progress label when pull request updates/commits
+
+name: Assign work in progress label when pull request is updated
+on: [pull_request]
+jobs:
+  working_label:
+    runs-on: ubuntu-latest
+    name: Label working progress
+    steps:
+      - uses: AlbertHernandez/working-label-action@v1.0.3
+        with:
+          work_in_progress_label: 'work in progress'
+          ready_to_review_label: 'awaiting review'
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
